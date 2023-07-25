@@ -2,7 +2,7 @@ const axios = require("axios");
 const nodemailer = require("nodemailer");
 const emailManager = require("../../emails/emailManager");
 
-const { User, } = require("../../db/models");
+const { User } = require("../../db/models");
 const {
 	loginValidation,
 	resetPasswordValidation,
