@@ -29,6 +29,9 @@
 
 
 module.exports = {
-    User: require('./user.model')
+    User: require('./user.model'),
+    VerificationRequest: require('./verification.model'),
+    Token: require('./token.model'),
+    Id: require('./id.model')
 }
 

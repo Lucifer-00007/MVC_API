@@ -2,7 +2,8 @@ const axios = require("axios");
 const nodemailer = require("nodemailer");
 const emailManager = require("../../emails/emailManager");
 
-const { User } = require("../../db/models");
+
+const { User, VerificationRequest, Token, Id, } = require("../../db/models");
 const {
 	loginValidation,
 	resetPasswordValidation,
@@ -10,6 +11,10 @@ const {
 	verifyOtpValidation,
 } = require("../../validators")
 const { symmetricDecrypt, symmetricEncrypt } = require("../../libs/crypto");
+const { AddMinutesToDate } = require("../../libs/time");
+const slugify = require("../../libs/slugify");
+require("dotenv").config();
+const { sendSignupConfirmationOtp, sendResetPinOtp, } = require("../../emails/emailManager");
 
 
 const AuthenticationController = {
@@ -434,7 +439,6 @@ const AuthenticationController = {
 	sendEmailOtp: async (req, res) => {
 		try {
 			const { email, type } = req.body;
-
 			//input data validation
 			if (!email || !type) {
 				throw new Error("Email or Type missing in body!");
@@ -443,73 +447,45 @@ const AuthenticationController = {
 			//Generate OTP
 			const otp = Math.floor(Math.random() * 100000) + 100000;
 			const now = new Date();
-
 			//Otp expiration time
-			// const expiration_time = AddMinutesToDate(now, 2);
+			const expiration_time = AddMinutesToDate(now, 2);
 
 			//Create VerificationRequest Instance in DB
-			// const vr = await VerificationRequest.create({
-			// 	otp,
-			// 	expires: expiration_time,
-			// });
+			const vr = await VerificationRequest.create({
+				otp,
+				expires: expiration_time,
+			});
 
-			//details object containing the email
+			//details object containing the email and vr id
 			const details = {
 				timestamp: now,
-				email: email,
+				check: email,
 				status: "success",
-				OTP: otp.toString(),
+				message: "OTP sent to user email address.",
+				otp_id: vr._id,
+			};
+			//Encrypting details Object
+			const encoded = symmetricEncrypt(JSON.stringify(details),  process.env.ENCRYPTION_KEY);
+
+			//email payload
+			const emailPayload = {
+				to: email.includes(".whl") ? "whrool21@gmail.com" : email,
+				otp: slugify(otp.toString()),
+				name: "Rider",
 			};
 
-			//Encrypting details Object
-			// const encoded = symmetricEncrypt(JSON.stringify(details), ENCRYPTION_KEY);
-
-
-			function send_user_mail(details_info) {
-				const transporter = nodemailer.createTransport({
-					service: "gmail",
-					auth: {
-						user: "files.backup.777@gmail.com",
-						pass: "lxjezcwjggymzblh",
-					}
-				});
-
-				transporter.sendMail(details_info, function (err, info) {
-					if (err) {
-						console.log(err)
-						return err;
-					} else {
-						//console.log(info);
-						return info
-					}
-				})
-			}
-
-			const emailTemplate = Handlebars.compile(emailManager.emailOtpFile);
-
 			if (type === "SIGNUP") {
-				//Signup email details
-				// text: `Dear Zocar Customer your otp is: ${otp.toString()}`
-				const signupOptions = {
-					from: "zocar.app@gmail.com",
-					to: email,
-					subject: "OTP Verification",
-					html: emailTemplate({ otp })
-				}
-				// console.log(emailManager.emailOtpFile);
-
 				//Signup Confirmation otp email
-				send_user_mail(signupOptions);
-
-				res.status(200).json({ success: true, details: details });
+				const sentMail = await sendSignupConfirmationOtp(emailPayload);
 			} else if (type === "RESET_PASSWORD") {
 				//Reset Password confirmation otp email
-				// const sentMail = await sendResetPinOtp(emailPayload);
+				const sentMail = await sendResetPinOtp(emailPayload);
 			} else {
 				//Incorrect email type error
-				throw new Error("Invalid email type provided in body!");
+				throw new Error("Invalid email type providedin body!");
 			}
 
+			res.status(200).json({ success: true, data: encoded });
 		} catch (err) {
 			console.log(err);
 			res.status(400).json({ success: false, error: { message: err.message } });
@@ -519,86 +495,57 @@ const AuthenticationController = {
 	//To verify otp email/phone
 	verifyOtp: async (req, res) => {
 		try {
-			const { otp } = req.body;
-			const otpData = db.collection('otpData');
+			const { verification_key, otp, check, userId, type="" } = req.body;
 
-			if (!otp) {
-				throw new Error("Otp is missing in body!");
+			if (!userId,!verification_key || !otp || !check) {
+			throw new Error("userId, Otp, check or verification_key is missing in body!");
 			}
 
-			//Checking OTP in DB
-			const otpExist = await otpData.doc(otp).get();
-			if (!otpExist.exists) {
-				throw new Error("Invalid OTP!");
+			// VALIDATE USER DATA BEFORE CREATING
+			const { error } = await verifyOtpValidation(req.body);
+			if (error) throw new Error(error.details[0].message);
+
+			//Decoding verification_key
+			let decoded = symmetricDecrypt(verification_key, ENCRYPTION_KEY);
+			let obj = await JSON.parse(decoded);
+
+			if (obj.check != check) throw new Error("Incorrect check email!");
+
+			//--------------------------------------------------------
+			//Checking email OTP in DB
+			const otpExist = await VerificationRequest.findById({ _id: obj.otp_id });
+			if (!otpExist) {
+			throw new Error("otp-not-found");
 			}
 
 			//Checking if OTP is already used or not
-			if (otpExist.data().isVerified === true) {
-				throw new Error("otp-already-used");
+			if (otpExist.isVerified) {
+			throw new Error("otp-already-used");
+			}
+
+			//Checking if OTP is equal to the OTP in DB
+			if (otp !== otpExist.otp) {
+			throw new Error("Incorrect Otp!");
 			}
 
 			//Mark OTP as verified or used
-			await otpData.doc(otp).update({ isVerified: true });
+			otpExist.isVerified = true;
+			await otpExist.save();
 
-			// await otpExist.data().save();
+			if(type==="MOBILE_VERIFICATION"){
+			//mark mobile as verified in db
+			await User.findByIdAndUpdate({_id:userId},{isPhoneVerified:true});
+			}
+
+			if(type==="EMAIL_VERIFICATION"){
+			//mark email as verified in db
+			await User.findByIdAndUpdate({_id:userId},{isEmailVerified:true});
+			}
 
 			res.status(200).json({ success: true, data: { message: "Otp Verified." } });
-		} catch (error) {
-			res.status(400).json({ success: false, error: { message: error.message } });
+		} catch (err) {
+			res.status(400).json({ success: false, error: { message: err.message } });
 		}
-
-		// try {
-		// 	const { verification_key, otp, check, userId, type="" } = req.body;
-
-		// 	if (!userId,!verification_key || !otp || !check) {
-		// 	throw new Error("userId, Otp, check or verification_key is missing in body!");
-		// 	}
-
-		// 	// VALIDATE USER DATA BEFORE CREATING
-		// 	const { error } = await verifyOtpValidation(req.body);
-		// 	if (error) throw new Error(error.details[0].message);
-
-		// 	//Decoding verification_key
-		// 	let decoded = symmetricDecrypt(verification_key, ENCRYPTION_KEY);
-		// 	let obj = await JSON.parse(decoded);
-
-		// 	if (obj.check != check) throw new Error("Incorrect check email!");
-
-		// 	//--------------------------------------------------------
-		// 	//Checking email OTP in DB
-		// 	const otpExist = await VerificationRequest.findById({ _id: obj.otp_id });
-		// 	if (!otpExist) {
-		// 	throw new Error("otp-not-found");
-		// 	}
-
-		// 	//Checking if OTP is already used or not
-		// 	if (otpExist.isVerified) {
-		// 	throw new Error("otp-already-used");
-		// 	}
-
-		// 	//Checking if OTP is equal to the OTP in DB
-		// 	if (otp !== otpExist.otp) {
-		// 	throw new Error("Incorrect Otp!");
-		// 	}
-
-		// 	//Mark OTP as verified or used
-		// 	otpExist.isVerified = true;
-		// 	await otpExist.save();
-
-		// 	if(type==="MOBILE_VERIFICATION"){
-		// 	//mark mobile as verified in db
-		// 	await User.findByIdAndUpdate({_id:userId},{isPhoneVerified:true});
-		// 	}
-
-		// 	if(type==="EMAIL_VERIFICATION"){
-		// 	//mark email as verified in db
-		// 	await User.findByIdAndUpdate({_id:userId},{isEmailVerified:true});
-		// 	}
-
-		// 	res.status(200).json({ success: true, data: { message: "Otp Verified." } });
-		// } catch (err) {
-		// 	res.status(400).json({ success: false, error: { message: err.message } });
-		// }
 	},
 
 	//User Logout Api
