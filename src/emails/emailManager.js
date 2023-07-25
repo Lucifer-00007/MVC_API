@@ -36,8 +36,8 @@ const sendSignupConfirmationOtp = async ({to, otp, name}) => {
   );
   const emailTemplate = Handlebars.compile(emailFile);
   const defaultPayload = {
-    from: "whrool21@gmail.com",
-    subject: "Signup Confirmation OTP | Whrool.com",
+    from: "files.backup.777@gmail.com",
+    subject: "Signup Confirmation OTP | Zocar.co.in",
     to,
     html: emailTemplate({
       otp,
@@ -54,8 +54,8 @@ const sendResetPinOtp = async ({to, otp, name}) => {
   });
   const emailTemplate = Handlebars.compile(emailFile);
   const defaultPayload = {
-    from: "whrool21@gmail.com",
-    subject: "Reset Pin OTP | Whrool.com",
+    from: "files.backup.777@gmail.com",
+    subject: "Reset Pin OTP | Zocar.co.in",
     to,
     html: emailTemplate({
       otp,
@@ -80,8 +80,8 @@ const sendPaymentSuccessEmail = async (
   });
   const emailTemplate = Handlebars.compile(emailFile);
   const defaultPayload = {
-    from: "whrool21@gmail.com",
-    subject: "Payment Successfull | Whrool.com",
+    from: "files.backup.777@gmail.com",
+    subject: "Payment Successfull | Zocar.co.in",
     to,
     html: emailTemplate({
       name,
@@ -102,8 +102,8 @@ const sendPaymentFailureEmail = async (to, name, amount, paymentId) => {
   });
   const emailTemplate = Handlebars.compile(emailFile);
   const defaultPayload = {
-    from: "whrool21@gmail.com",
-    subject: "Payment Failed!! | Whrool.com",
+    from: "files.backup.777@gmail.com",
+    subject: "Payment Failed!! | Zocar.co.in",
     to,
     html: emailTemplate({
       name,
@@ -120,8 +120,8 @@ const sendPaymentReminderEmail = async (to,name,description,dueDate) => {
   });
   const emailTemplate = Handlebars.compile(emailFile);
   const defaultPayload = {
-    from: "whrool21@gmail.com",
-    subject: "Payment Reminder!! | Whrool.com",
+    from: "files.backup.777@gmail.com",
+    subject: "Payment Reminder!! | Zocar.co.in",
     to,
     html: emailTemplate({
       name,
@@ -139,8 +139,8 @@ const sendPaymentReminderEmail = async (to,name,description,dueDate) => {
 //---------------------------------------------
 const sendContactUsEmail = async ({to,name,email,mobile_no,location,message})=>{
   const defaultPayload = {
-    from: "whrool21@gmail.com",
-    subject: `${name} is Contacting You | Whrool.com`,
+    from: "files.backup.777@gmail.com",
+    subject: `${name} is Contacting You | Zocar.co.in`,
     to,
     text: `${name} \n ${email} \n ${mobile_no} \n ${location} \n ${message}`
     // html: emailTemplate({
@@ -153,7 +153,7 @@ const sendContactUsEmail = async ({to,name,email,mobile_no,location,message})=>{
 
 const sendOtpEmail = async (payload) => {
   const defaultPayload = {
-    from: "whrool21@gmail.com",
+    from: "files.backup.777@gmail.com",
     subject: "Whrool.com Signup OTP",
     //text:"Default OTP is 123456"
   };
