@@ -2,59 +2,96 @@ const axios = require("axios");
 const nodemailer = require("nodemailer");
 const emailManager = require("../../emails/emailManager");
 
-
+const { User, } = require("../../db/models");
+const {
+	loginValidation,
+	resetPasswordValidation,
+	registerValidation,
+	verifyOtpValidation,
+} = require("../../validators")
+const { symmetricDecrypt, symmetricEncrypt } = require("../../libs/crypto");
 
 
 const AuthenticationController = {
 	//User Signup Api
 	signupUser: async (req, res) => {
-		const user = db.collection('users');
-
 		try {
-			const { name, email, phone } = req.body;
+			// VALIDATE USER DATA BEFORE CREATING
+			const { error } = await registerValidation(req.body);
+			if (error) throw new Error(error.details[0].message);
 
-			if (!name || !email || !phone) {
-				throw new Error("Enter all the data!");
-			}
+			// Request Body
+			const { name, email, phone, pin, emailOtp, verification_key } = req.body;
 
 			// Checking if user is already in database using email
-			const emailExist = await user.doc(email).get();
-			if (emailExist.exists) throw new Error("Email Already Exist!");
+			const emailExist = await User.findOne({ email });
+			if (emailExist) throw new Error("Phone Number Or Email Already Exist!");
 
 			// Checking if user is already in database using phone
-			const CheckPhoneExist = await user.get();
-			CheckPhoneExist.forEach(doc => {
-				if (doc.data().phone == phone) throw new Error("Phone Number Already Exist!");
-			});
+			const phoneExist = await User.findOne({ phone });
+			if (phoneExist) throw new Error("Phone Number Or Email Already Exist!");
 
-			//Save user data for auth.
-			// const userResponse = await admin.auth().createUser({
-			// 	email: email,
-			// 	password: pass,
-			// 	emailVerified: false,
-			// 	disabled: false 
-			// })
+			let decoded = symmetricDecrypt(verification_key, ENCRYPTION_KEY);
+			let obj = await JSON.parse(decoded);
 
-			//Save user data to firestore.
-			var userId   //phone+random_string
-			const userJson = {
-				id: userId,
+			if (obj.check !== email) throw new Error("InCorrect Email!");
+
+			//--------------------------------------------------------
+			//Checking email OTP in DB
+			const otpExist = await VerificationRequest.findById({ _id: obj.otp_id });
+			if (!otpExist) throw new Error("otp-not-found");
+
+			//Checking if OTP is already used or not
+			if (otpExist.isVerified) throw new Error("otp-already-used");
+
+			//Checking if OTP is equal to the OTP in DB
+			if (emailOtp !== otpExist.otp) throw new Error("incorrect-email-otp");
+			//Mark OTP as verified or used
+			otpExist.isVerified = true;
+			await otpExist.save();
+
+			//Gets the document which stores last generated whroolerID
+			const ID = await Id.findOne();
+			//Returns the new whroolerId by incrementing the last id by 1.
+			const newWhroolerId = await ID.getWhroolerId();
+
+			// Hash passwords
+			const salt = await bcrypt.genSalt(10);
+			//using pin as password
+			const hashedPin = await bcrypt.hash(pin, salt);
+
+			// CREATE NEW USER
+			const newUser = await new User({
+				userId: newWhroolerId,
 				name: name,
 				email: email.toLowerCase(),
 				phone: phone,
-				emailVerified: false,
-				disabled: false,
-			}
+				pin: hashedPin,
+				isEmailVerified: true,
+			});
 
-			//Add new user with default uid.
-			// const userResponse = await user.add(userJson);
+			//avoids incrementing id if user creation fails
+			await ID.save();
 
-			//Set new user with phone as uid.
-			const userResponse = await user.doc(phone).set(userJson);
+			//create supporting documents like plan,
+			await newUser.createSupportingDocuments();
 
-			res.status(200).json({ success: true, data: userResponse, details: userJson })
-		} catch (error) {
-			res.status(400).json({ success: false, error: { message: error.message } });
+			//const createdUser = await user.save();
+			let accessToken = await newUser.createAccessToken();
+			let refreshToken = await newUser.createRefreshToken();
+			//saving the newUser
+			await newUser.save();
+
+			//deleting pin
+			delete newUser.pin;
+			res
+				.status(200)
+				.json({
+					success: true,
+					data: { accessToken, refreshToken, user: newUser },
+				});
+		} catch (err) {
+			res.status(400).json({ success: false, error: { message: err.message } });
 		}
 	},
 
@@ -125,7 +162,7 @@ const AuthenticationController = {
 			// Checking if user has registered or not.
 			const phoneExist = await user.doc(phone).get();
 			if (!phoneExist.exists) throw new Error("user not found!");
-			
+
 
 
 
@@ -375,7 +412,7 @@ const AuthenticationController = {
 				message: `${otp} SMS Sent Successfully to User ${mobile_no}.`
 			};
 
-			
+
 			//Encrypting details Object
 			// const encoded = symmetricEncrypt(JSON.stringify(details), ENCRYPTION_KEY);
 
@@ -457,7 +494,7 @@ const AuthenticationController = {
 					from: "zocar.app@gmail.com",
 					to: email,
 					subject: "OTP Verification",
-					html: emailTemplate({otp})
+					html: emailTemplate({ otp })
 				}
 				// console.log(emailManager.emailOtpFile);
 
