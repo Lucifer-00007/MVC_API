@@ -15,7 +15,7 @@ const { AddMinutesToDate } = require("../../libs/time");
 const slugify = require("../../libs/slugify");
 require("dotenv").config();
 const { sendSignupConfirmationOtp, sendResetPinOtp, } = require("../../emails/emailManager");
-
+const bcrypt = require("bcryptjs");
 
 const AuthenticationController = {
 	//User Signup Api
@@ -36,7 +36,7 @@ const AuthenticationController = {
 			const phoneExist = await User.findOne({ phone });
 			if (phoneExist) throw new Error("Phone Number Or Email Already Exist!");
 
-			let decoded = symmetricDecrypt(verification_key, ENCRYPTION_KEY);
+			let decoded = symmetricDecrypt(verification_key, process.env.ENCRYPTION_KEY);
 			let obj = await JSON.parse(decoded);
 
 			if (obj.check !== email) throw new Error("InCorrect Email!");
@@ -55,10 +55,10 @@ const AuthenticationController = {
 			otpExist.isVerified = true;
 			await otpExist.save();
 
-			//Gets the document which stores last generated whroolerID
+			//Gets the document which stores last generated ZocarID
 			const ID = await Id.findOne();
-			//Returns the new whroolerId by incrementing the last id by 1.
-			const newWhroolerId = await ID.getWhroolerId();
+			//Returns the new ZocarId by incrementing the last id by 1.
+			const newZocarId = await ID.getZocarId();
 
 			// Hash passwords
 			const salt = await bcrypt.genSalt(10);
@@ -67,7 +67,7 @@ const AuthenticationController = {
 
 			// CREATE NEW USER
 			const newUser = await new User({
-				userId: newWhroolerId,
+				userId: newZocarId,
 				name: name,
 				email: email.toLowerCase(),
 				phone: phone,
@@ -77,9 +77,6 @@ const AuthenticationController = {
 
 			//avoids incrementing id if user creation fails
 			await ID.save();
-
-			//create supporting documents like plan,
-			await newUser.createSupportingDocuments();
 
 			//const createdUser = await user.save();
 			let accessToken = await newUser.createAccessToken();
@@ -455,6 +452,7 @@ const AuthenticationController = {
 				otp,
 				expires: expiration_time,
 			});
+			await vr.save();
 
 			//details object containing the email and vr id
 			const details = {

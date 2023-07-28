@@ -9,7 +9,7 @@ const TokenSchema = new Schema({
     type: String,
     //required:true,
   },
-  //add expires time if possible base don token life time
+  //add expires time if possible base on token life time.
   date: {
     type: Date,
     default: Date.now,
