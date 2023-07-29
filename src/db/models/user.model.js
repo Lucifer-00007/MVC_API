@@ -1,20 +1,7 @@
 const { Schema, model } = require("mongoose");
-// const jwt = require('jsonwebtoken');
-// const { ACCESS_TOKEN_SECRET, REFRESH_TOKEN_SECRET } = process.env;
-
-
-// const pointSchema = new Schema({
-//   type: {
-//     type: String,
-//     enum: ['Point'],
-//     default:'Point',
-//     // required: true
-//   },
-//   coordinates: {
-//     type: [Number],
-//     required: true
-//   }
-// });
+const jwt = require('jsonwebtoken');
+const { ACCESS_TOKEN_SECRET, REFRESH_TOKEN_SECRET } = process.env;
+const Token = require("./token.model");
 
 /**
  * End User Schema
@@ -127,9 +114,9 @@ UserSchema.methods = {
     //UserSchema Instance Method to generate access token
     createAccessToken: async function () {
         try {
-            let { _id, whroolerId, email, gender, plan } = this;
+            let { _id, userId, email, gender } = this;
             let accessToken = jwt.sign(
-                { user: { _id, whroolerId, email, gender, plan } },
+                { user: { _id, userId, email, gender } },
                 ACCESS_TOKEN_SECRET,
                 {
                     expiresIn: "7d"
@@ -137,25 +124,25 @@ UserSchema.methods = {
             );
             return `Bearer ${accessToken}`;
         } catch (err) {
-            consola.error({ badge: true, message: err.message })
+            console.log({ status: false, message: err.message })
             return new Error(`Unable to generate access token! ${err.message}`);
         }
     },
     //UserSchema Instance Method to generate refresh token and save into database
     createRefreshToken: async function () {
         try {
-            let { _id, whroolerId, email, gender, plan } = this;
+            let { _id, userId, email, gender } = this;
             let refreshToken = jwt.sign(
-                { user: { _id, whroolerId, email, gender, plan } },
+                { user: { _id, userId, email, gender } },
                 REFRESH_TOKEN_SECRET,
                 {
                     expiresIn: "90d"
                 }
             );
-            await new Token({ token: refreshToken, whroolerId }).save();
+            await new Token({ token: refreshToken, userId }).save();
             return `Bearer ${refreshToken}`;
-        } catch (error) {
-            consola.error({ badge: true, message: err.message })
+        } catch (err) {
+            console.log({ status: false, message: err.message })
             return new Error(`Unable to generate refresh token! ${err.message}`);
         }
     }

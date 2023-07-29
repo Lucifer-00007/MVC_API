@@ -1,21 +1,12 @@
+require("dotenv").config();
 const axios = require("axios");
-const nodemailer = require("nodemailer");
-const emailManager = require("../../emails/emailManager");
-
-
-const { User, VerificationRequest, Token, Id, } = require("../../db/models");
-const {
-	loginValidation,
-	resetPasswordValidation,
-	registerValidation,
-	verifyOtpValidation,
-} = require("../../validators")
+const bcrypt = require("bcryptjs");
+const { User, VerificationRequest, Token, } = require("../../db/models");
+const { loginValidation, resetPasswordValidation, registerValidation, verifyOtpValidation,} = require("../../validators")
 const { symmetricDecrypt, symmetricEncrypt } = require("../../libs/crypto");
 const { AddMinutesToDate } = require("../../libs/time");
 const slugify = require("../../libs/slugify");
-require("dotenv").config();
 const { sendSignupConfirmationOtp, sendResetPinOtp, } = require("../../emails/emailManager");
-const bcrypt = require("bcryptjs");
 
 const AuthenticationController = {
 	//User Signup Api
@@ -55,19 +46,14 @@ const AuthenticationController = {
 			otpExist.isVerified = true;
 			await otpExist.save();
 
-			//Gets the document which stores last generated ZocarID
-			const ID = await Id.findOne();
-			//Returns the new ZocarId by incrementing the last id by 1.
-			const newZocarId = await ID.getZocarId();
-
 			// Hash passwords
 			const salt = await bcrypt.genSalt(10);
 			//using pin as password
 			const hashedPin = await bcrypt.hash(pin, salt);
-
+			
 			// CREATE NEW USER
 			const newUser = await new User({
-				userId: newZocarId,
+				userId: `${Math.floor(new Date())}${phone}`,
 				name: name,
 				email: email.toLowerCase(),
 				phone: phone,
@@ -75,23 +61,16 @@ const AuthenticationController = {
 				isEmailVerified: true,
 			});
 
-			//avoids incrementing id if user creation fails
-			await ID.save();
-
 			//const createdUser = await user.save();
 			let accessToken = await newUser.createAccessToken();
 			let refreshToken = await newUser.createRefreshToken();
+			
 			//saving the newUser
 			await newUser.save();
 
 			//deleting pin
 			delete newUser.pin;
-			res
-				.status(200)
-				.json({
-					success: true,
-					data: { accessToken, refreshToken, user: newUser },
-				});
+			res.status(200).json({success: true, data: { accessToken, refreshToken, user: newUser }, });
 		} catch (err) {
 			res.status(400).json({ success: false, error: { message: err.message } });
 		}

@@ -9,14 +9,7 @@ const VerificationRequestSchema = new Schema({
     type:Boolean,
     default:false,
   },
-  // type:{
-  //   type:String,
-  //   required:true,
-  //   enum:{
-  //     values:['SIGNUP','RESET_PASSWORD'],
-  //     message:'{VALUE} is not supported!'
-  //   },
-  // },
+
   otp:{
     type:String,
     required:true

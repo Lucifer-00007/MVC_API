@@ -5,7 +5,7 @@ const TokenSchema = new Schema({
     type: String,
     required: true,
   },
-  whroolerId: {
+  userId: {
     type: String,
     //required:true,
   },
