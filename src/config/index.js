@@ -1,5 +1,3 @@
-const PREFIX_ZOCAR_ID = 'ZOC';
-
 const NODEMAILER_CONFIG = {
     host: "smtp.gmail.com",
     domain: "gmail.com",
@@ -17,4 +15,4 @@ const NODEMAILER_CONFIG = {
     }
 };
 
-module.exports = { NODEMAILER_CONFIG, PREFIX_ZOCAR_ID };
+module.exports = { NODEMAILER_CONFIG, };
