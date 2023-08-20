@@ -1,7 +1,5 @@
-const { User, SkippedUser, Message, ReportedUser, Id, Ticket, Interest, PaymentTable, Profession, Qualification, City, Plan, Payment } = require("../../db/models");
-const {toId} = require("../../db/helper");
-const { defaultImgBasedOnAgeAndGender, defaultImgBasedOnGender } = require("../../libs/defaultImg");
-const {AddMinutesToDate} = require("../../libs/time");
+const { User, Id, Interest, Profession, Qualification, City, } = require("../../db/models");
+//const {toId} = require("../../db/helper");
 const bcrypt = require('bcryptjs');
 
 
@@ -104,86 +102,15 @@ const UserController = {
       res.status(400).json({ success: false, error: { message: err.message } });
     }
   },
-
-  getUserTickets: async (req, res) => {
+  getAllUsers: async (req, res) => {
     try {
-      const {userId} = req.query;
-      if(!userId){
-        throw new Error("userId is missing in query!");
-      }
-      // if (!isAuthenticated) throw new ApolloError(NotAllowed.message, NotAllowed.code);
-      const userTickets = await Ticket.find({ raisedBy:userId });
-      if(!userTickets) {
-        throw new Error("No Tickets Found!");
-      }
-      res.status(200).json({ success: true, data: userTickets });
+      const allUsers = await User.find();
+      res.status(200).json({ success: true, data: allUsers });
     } catch (err) {
       res.status(400).json({ success: false, error: { message: err.message } });
     }
   },
-  getUserPayments: async (req, res) => {
-    try {
-      const {userId} = req.query;
-      if(!userId){
-        throw new Error("userId is missing in query!")
-      }
-      // res.status(200).json({ success: true, data: {message:"getUserInterests"} });
-      const payment = await Payment.find({userId:req.user._id});
-      res.status(200).json({ success: true, data: payment });
 
-    } catch (err) {
-      res.status(400).json({ success: false, error: { message: err.message } });
-    }
-  },  
-  getUserPlan: async (req, res) => {
-    try {
-      const {userId} = req.query;
-      if(!userId){
-        throw new Error("userId is missing in query!");
-      }
-        // if(!isAuthenticated) throw new Error("not-allowed");
-      const plan = await Plan.findOne({userId});
-      
-      if(!plan){
-        throw new Error("User Plan not Found!");
-      }
-    
-      res.status(200).json({success:true,data:plan})
-    } catch (err) {
-      res.status(400).json({success:false,error:{message:err.message}})
-    }
-  },
-  //To add user onboarding data
-  onboarding: async (req, res) => {
-    try {
-      //AUTHENTICATION CHECK
-      // if (!isAuthenticated) throw new ApolloError(NotAllowed.message, NotAllowed.code);
-      
-      //VALIDATION CHECK
-      const {userId, age, cityId, gender } = req.body;
-      if(!age || !cityId || !gender){
-        throw new Error("userId, age, cityId or gender is missing in body!");
-      }
-      //Write Validation for data @skpjr001
-
-      //Not using @skpjr001
-      // const {user:USER} = req.cookies;
-
-
-      //DB OPERATIONS AND LOGIC
-
-      const updatedUser = await User.findByIdAndUpdate(
-        { _id: userId },
-        { age, city: toId(cityId), gender, isOnboardingCompleted: true,"profilePic.img":defaultImgBasedOnGender(gender) },
-        { new: true }
-      );
-      if (!updatedUser) throw new Error("Unable to complete onboarding!");
-      
-      res.status(200).json({ success: true, data:{message:"Onboarding Completed Successfully."} });
-    } catch (err) {
-      res.status(400).json({ success: false, error: { message: err.message } });
-    }
-  },
 
   //USER ACTIONS
 
@@ -218,25 +145,7 @@ const UserController = {
     } catch (err) {
       res.status(400).json({ success: false, error: { message: err.message } });
     }
-  },
-  //To edit user Interests
-  editInterests: async (req, res) => {
-    try {
-      const {userId, interestIds} = req.body;
-      if(!userId || !interestIds){
-        throw new Error("userId or interestIds is missing in body!");
-      }
-      const user = await User.findByIdAndUpdate(
-        { _id: userId },
-        { $set: { interests: interestIds.map((id) => toId(id)) } },
-        { new: true }
-      );
-      res.status(200).json({ success: true, data: "Interest Updated" });
-    } catch (err) {
-      res.status(400).json({ success: false, error: { message: err.message } });
-    }
-  },
-  
+  },  
   //To edit user photos
   editPhotos: async (req, res) => {
     try {

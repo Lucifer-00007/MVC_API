@@ -20,7 +20,7 @@ connectToDatabase(process.env.LOCAL_MONGO_URL)
 app.use("/api/v1/auth", auth_routes);
 
 //USER ROUTES
-// app.use("/api/v1/user", user_routes);
+app.use("/api/v1/user", user_routes);
 
 //DRIVER UPLOAD ROUTES
 // app.use("/api/v1/driverUp", driverUp_routes);
