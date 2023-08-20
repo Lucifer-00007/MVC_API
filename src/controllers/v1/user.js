@@ -74,11 +74,10 @@ const UserController = {
   },
   getUser: async (req, res) => {
     try {
-      // if (!isAuthenticated) throw new ApolloError(NotAllowed.message, NotAllowed.code);
       const { userId, email } = req.query;
-
+      
       if(userId){
-        const user = await User.findById(userId,{pin:0});
+        const user = await User.findOne({ userId },{pin:0});
         if (!user) {
           throw new Error("User Not Found!");
         }
@@ -92,12 +91,11 @@ const UserController = {
         }
         res.status(200).json({ success: true, data: user });
         return;
-      }
+      }      
 
       if(!userId || !email){
         throw new Error("userId or email is missing in query!")
       }
-      
     } catch (err) {
       res.status(400).json({ success: false, error: { message: err.message } });
     }
@@ -111,36 +109,24 @@ const UserController = {
     }
   },
 
-
-  //USER ACTIONS
-
-  //OTHER USER ACTIONS
-  //Block
-
   //EDIT PROFILE ACTIONS
   //TO edit user profile
   editProfile: async (req, res) => {
     try {
-
-      const {userId,name,bio,professionId,qualificationId} = req.body;
+      const {userId, name, email, phone, age, gender} = req.body;
       if(!userId){
         throw new Error("userId is missing in body!");
       }
-      // if (!isAuthenticated) throw new ApolloError(NotAllowed.message, NotAllowed.code);
-      let ChangeDetails = {}
-      
+
+      let ChangeDetails = {}      
       if(name) ChangeDetails.name=name;
-      if(bio) ChangeDetails.bio=bio;
-      if(professionId) ChangeDetails.profession = toId(professionId);
-      if(qualificationId) ChangeDetails.qualification = toId(qualificationId);
-      // if(interestIds) ChangeDetails.interests =  interestIds.map((id) => toId(id))
-      if(!name|| !bio || !professionId || !qualificationId){
-        throw new Error("name, bio, professionId or qualificationId is missing in body!");
-      }
-      // if(input.interestIds) ChangeDetails.interests =  input.interestIds.map((id) => toId(id))
-      // console.log(ChangeDetails)
-      const user = await User.findByIdAndUpdate({_id:userId},ChangeDetails)
-     
+      if(email) ChangeDetails.email=email; ChangeDetails.isEmailVerified=false;
+      if(phone) ChangeDetails.phone=phone; ChangeDetails.isPhoneVerified=false;
+      if(age) ChangeDetails.age=age;
+      if(gender) ChangeDetails.gender=gender;
+      
+      const user = await User.findOneAndUpdate({ userId }, ChangeDetails)
+
       res.status(200).json({ success: true, data: "Profile Updated" });
     } catch (err) {
       res.status(400).json({ success: false, error: { message: err.message } });
@@ -158,19 +144,14 @@ const UserController = {
   //CHANGE USER PIN
   changePin: async (req, res) => {
     try {
-      //AUTHENTICATION CHECK
-      // if(!isAuthenticated) throw new ApolloError(NotAllowed.message, NotAllowed.code);
-
       //VALIDATION CHECK
       const {currentPin, newPin, userId} = req.body;
       if(!currentPin || !newPin || !userId){
         throw new Error("currentPin, newPin or userId is missing in body!");
       }
 
-      // const {user:USER} = req.cookies;
-
       //LOGIC AND DB OPERATIONS
-      const me = await User.findById(userId).select("pin");
+      const me = await User.findOne({ userId }).select("pin");
       const validPin = await bcrypt.compare(currentPin, me.pin);
       if(!validPin) throw new Error("Incorrect Pin!");
 
@@ -179,7 +160,7 @@ const UserController = {
       //using pin as password
       const hashedPin = await bcrypt.hash(newPin, salt);
 
-      const user = await User.findByIdAndUpdate(userId,{pin:hashedPin});
+      const user = await User.findOneAndUpdate({ userId }, { pin:hashedPin });
 
       res.status(200).json({ success: true, data: {message:"Pin Changed Successfully."} });
     } catch (err) {
@@ -187,82 +168,30 @@ const UserController = {
     }
   },
 
-  //FIND USER BASED ON FILTERS
-  findUsers: async (req, res) => {
-    try {
-      const {userId,gender,age,cityId,interests,skipped=0} = req.body
-      // if (!isAuthenticated) throw new Error("not-allowed");
-      if(!userId || !gender){
-        throw new Error("userId or gender is missing in body!");
+  //DELETE USER
+  //To Delete One user
+  deleteOneUser: async (req, res) => {
+  try {
+      const { userId, } = req.params;
+      if(!userId){
+        throw new Error("userId is missing in body!");
       }
-      let whroolerFilter = new Object();
-      
-      //$ne --> not equal (Comparison Query Operators in MongoDB)
-      whroolerFilter.gender={$ne:gender}
-      //excluding self document
-      whroolerFilter._id = {$ne:userId}
-      
-      if (age && typeof age.min ==="number" && typeof age.max ==="number") {
-        whroolerFilter.age = {
-          $gte: age.min,
-          $lte: age.max,
-        };
-      }
-      if (cityId && cityId.length>10) {
-        whroolerFilter.city = toId(cityId);
-      }
-      if (interests && interests.length>0){
-        whroolerFilter.interests = {
-          $all: interests,
-        };
-      }
-
-      if(!whroolerFilter.age && !whroolerFilter.city && !whroolerFilter.interests){
-        throw new Error("No Filters Specified!");
-      }
-
-      whroolerFilter["profilePic.status"] = { $eq: "ACCEPTED" };
-      whroolerFilter["coverPic.status"] = { $eq: "ACCEPTED" };
-      whroolerFilter["photo1.status"] = { $eq: "ACCEPTED" };
-      
-
-      const users = await User.find(whroolerFilter,{},{limit:15,skip:skipped}).select("_id name age city gender 0").lean();
-      
-      if (!users || users.length<1) {
-        throw new Error("No Users Found!");
-      }
-      
-      for (let i in users){
-        
-        users[i].city = await City.findById(users[i].city);   
-        //console.log(whrooler[i].coverPic.isVerified)
-      }
-
-      //filtering whroolers based on filters
-
-      res.status(200).json({success:true,data:users});
-    } catch (err) {
-      res.status(400).json({success:false,error:{message:err.message}})
-    }
-  },
-  //ADMIN SIDE
-  
-
-  editUser: async (req, res) => {
-    try {
-      res.status(200).json({ success: true, data: "editUser" });
+      const deleteUser = await User.deleteOne({ userId: userId.toString() });
+      res.status(200).json({ success: true, data: "One user delete successfully!", deleteUser });
     } catch (err) {
       res.status(400).json({ success: false, error: { message: err.message } });
     }
   },
 
-  deleteUser: async (req, res) => {
+  //To Delete many users
+  deleteManyUsers: async (req, res) => {
     try {
       res.status(200).json({ success: true, data: "deleteUser" });
-    } catch (err) {
-      res.status(400).json({ success: false, error: { message: err.message } });
-    }
-  },
+      } catch (err) {
+        res.status(400).json({ success: false, error: { message: err.message } });
+      }
+    },
+  
 };
 
 module.exports = UserController;
