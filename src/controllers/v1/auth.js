@@ -1,4 +1,4 @@
-require("dotenv").config();
+const { ENCRYPTION_KEY } = process.env;
 const axios = require("axios");
 const bcrypt = require("bcryptjs");
 const { User, VerificationRequest, Token, } = require("../../db/models");
@@ -28,7 +28,7 @@ const AuthenticationController = {
 			const phoneExist = await User.findOne({ phone });
 			if (phoneExist) throw new Error("Phone Number Or Email Already Exist!");
 
-			let decoded = symmetricDecrypt(verification_key, process.env.ENCRYPTION_KEY);
+			let decoded = symmetricDecrypt(verification_key, ENCRYPTION_KEY);
 			let obj = await JSON.parse(decoded);
 
 			if (obj.check !== email) throw new Error("InCorrect Email!");
@@ -128,68 +128,56 @@ const AuthenticationController = {
 	//To send otp to phone number
 	sendPhoneOtp: async (req, res) => {
 		try {
-			const { mobile_no } = req.body;
-			const otpData = db.collection('otpData');
-
-			if (!mobile_no) {
-				throw new Error("mobile_no is missing in body!");
-			}
-
-			//Generate OTP
-			const otp = Math.floor(Math.random() * 100000) + 100000;
-			const now = new Date();
-
-			//OTP message
-			const otp_msg = `Dear Customer your otp is: ${otp.toString()}, SVMTPL`;
-
-			//Otp expiration time
-			var expiration_time = new Date();
-			expiration_time = new Date(expiration_time.setMinutes(expiration_time.getMinutes() + 2));
-
-
-			//Create VerificationRequest Instance in DB
-			// const vr = await VerificationRequest.create({
-			// 	otp,
-			// 	expires: expiration_time,
-			// });
-
-			const otpJson = {
-				isVerified: false,
-				otp: otp,
-				expires: expiration_time
-			};
-
-			//Add new otp with default uid in firestore.
-			// const otpResponse = await otpData.add(otpJson);
-
-			//Set new otp-obj with otp as uid.
-			const userResponse = await otpData.doc(otp.toString()).set(otpJson);
-
-			//details object containing the email and vr id
-			const details = {
-				timestamp: now,
-				mobile: mobile_no,
-				otp: otp,
-				status: "success",
-				message: `${otp} SMS Sent Successfully to User ${mobile_no}.`
-			};
-
-
-			//Encrypting details Object
-			// const encoded = symmetricEncrypt(JSON.stringify(details), ENCRYPTION_KEY);
-
-			const newMobile_no = mobile_no.length > 10 ? mobile_no.substring(2) : mobile_no
-			const { status, message } = await axios.get(`http://teleshoppe.co.in/serv/BulkPush/?user=onlinkweb&pass=12345678&message=${otp_msg}&msisdn=${newMobile_no}&sender=SVMTPL&type=text&tempId=1007051859388551011`);
-
-			if (status === "error") {
-				throw new Error(message);
-			}
-
-			res.status(200).json({ success: true, data: message, details: details });
-		} catch (err) {
-			console.log(err);
+			res.status(200).json({ success: true, data: 'OTP SEND SUCCESS!' });
+		} catch (error) {
 			res.status(400).json({ success: false, error: { message: err.message } });
 		}
+		
+		// try {
+		// 	const { userId, mobile_no, route = "TRANS", template_id = "1507165881627095157" } = req.body;
+
+		// 	if (!userId || !mobile_no) {
+		// 		throw new Error("userId or mobile_no is missing in body!");
+		// 	}
+
+		// 	//Generate OTP
+		// 	const otp = Math.floor(Math.random() * 100000) + 100000;
+		// 	const now = new Date();
+		// 	//Otp expiration time
+		// 	const expiration_time = AddMinutesToDate(now, 2);
+
+		// 	//Create VerificationRequest Instance in DB
+		// 	const vr = await VerificationRequest.create({
+		// 		otp,
+		// 		expires: expiration_time,
+		// 	});
+
+		// 	//details object containing the email and vr id
+		// 	const details = {
+		// 		timestamp: now,
+		// 		check: mobile_no,
+		// 		status: "success",
+		// 		message: "OTP SMS Sent Successfully to User Mobile Number.",
+		// 		otp_id: vr._id,
+		// 	};
+
+		// 	//Encrypting details Object
+		// 	const encoded = symmetricEncrypt(JSON.stringify(details), ENCRYPTION_KEY);
+
+		// 	const newMobile_no = mobile_no.length > 10 ? mobile_no.substring(2) : mobile_no
+		// 	const { status, message } = await axios.get(`https://www.alots.in/sms-panel/api/http/index.php?username=${SMS_ACCOUNT_NAME}&apikey=${SMS_API_KEY}&apirequest=Text&sender=${SMS_SENDER_ID}&mobile=${newMobile_no}&message=Dear,
+		//   Its your Whrool otp ${otp} valid for 2 minutes.
+		//   Do not share with anyone.&route=${route}&TemplateID=${template_id}&format=JSON`);
+
+		// 	if (status === "error") {
+		// 		throw new Error(message);
+		// 	}
+
+		// 	res.status(200).json({ success: true, data: encoded, message });
+		// } catch (err) {
+		// 	console.log(err);
+		// 	res.status(400).json({ success: false, error: { message: err.message } });
+		// }
 	},
 
 	//To send otp to email
@@ -223,7 +211,7 @@ const AuthenticationController = {
 				otp_id: vr._id,
 			};
 			//Encrypting details Object
-			const encoded = symmetricEncrypt(JSON.stringify(details), process.env.ENCRYPTION_KEY);
+			const encoded = symmetricEncrypt(JSON.stringify(details), ENCRYPTION_KEY);
 
 			//email payload
 			const emailPayload = {
@@ -349,7 +337,6 @@ const AuthenticationController = {
 	//User Logout Api
 	logout: async (req, res) => {
 		try {
-			// if(!isAuthenticated) throw new ApolloError(NotAllowed.message, NotAllowed.code);
 			const { refreshToken } = req.body;
 			if (!refreshToken) {
 				throw new Error("token is missing in body!");

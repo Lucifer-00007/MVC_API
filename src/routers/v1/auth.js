@@ -29,6 +29,9 @@ router.post("/phone/send-otp", AuthenticationController.sendPhoneOtp);
 //To verify otp
 router.post("/verify-otp", AuthenticationController.verifyOtp);
 
+//To reset pin
+router.post("/reset-pin", AuthenticationController.resetPin);
+
 //To logout user
 router.post("/logout", AuthenticationController.logout);
 
