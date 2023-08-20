@@ -128,11 +128,23 @@ const AuthenticationController = {
 	//To send otp to phone number
 	sendPhoneOtp: async (req, res) => {
 		try {
-			res.status(200).json({ success: true, data: 'OTP SEND SUCCESS!' });
+			const { userId, mobile_no, } = req.body;
+			if (!userId || !mobile_no) {
+				throw new Error("userId or mobile_no is missing in body!");
+			}
+
+			//Generate OTP
+			const otp = Math.floor(Math.random() * 100000) + 100000;
+			const now = new Date();
+			
+			//Otp expiration time
+			const expiration_time = AddMinutesToDate(now, 2)
+
+			res.status(200).json({ success: true, data: `OTP ${otp} SEND SUCCESS TO ${mobile_no}!` });
 		} catch (error) {
 			res.status(400).json({ success: false, error: { message: err.message } });
 		}
-		
+
 		// try {
 		// 	const { userId, mobile_no, route = "TRANS", template_id = "1507165881627095157" } = req.body;
 
@@ -255,7 +267,7 @@ const AuthenticationController = {
 			let decoded = symmetricDecrypt(verification_key, ENCRYPTION_KEY);
 			let obj = await JSON.parse(decoded);
 
-			if (obj.check != check) throw new Error("Incorrect check email!");
+			if (obj.check != check) throw new Error("Incorrect check email or phone!");
 
 			//--------------------------------------------------------
 			//Checking email OTP in DB
@@ -280,12 +292,12 @@ const AuthenticationController = {
 
 			if (type === "MOBILE_VERIFICATION") {
 				//mark mobile as verified in db
-				await User.findByIdAndUpdate({ _id: userId }, { isPhoneVerified: true });
+				await User.findOneAndUpdate({ userId }, { isPhoneVerified: true });
 			}
 
 			if (type === "EMAIL_VERIFICATION") {
 				//mark email as verified in db
-				await User.findByIdAndUpdate({ _id: userId }, { isEmailVerified: true });
+				await User.findOneAndUpdate({ userId }, { isEmailVerified: true });
 			}
 
 			res.status(200).json({ success: true, data: { message: "Otp Verified." } });
